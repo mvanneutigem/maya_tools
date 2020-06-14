@@ -4,10 +4,56 @@ import math
 from maya.api import OpenMaya
 from maya import cmds
 
-from transform_anim import utils
+from transform_anim.v2 import utils
 
 
-def apply_transform_to_object(
+def apply_transform_to_static_object(
+    object_path,
+    transform_matrix,
+    pivot_matrix=None,
+):
+    """Transform object using given transformation matrix,
+
+    Optionally the transformation can be applied from a specific pivot matrix
+    otherwise the the transformation will be along world origin.
+
+    Args:
+        object_path (str): dagpath of object to transform.
+        transform_matrix (OpenMaya.MMatrix): matrix to transform object with.
+        pivot_matrix (OpenMaya.MMatrix):
+            pivot matrix to apply transformation on.
+    """
+    if not pivot_matrix:
+        pivot_matrix = OpenMaya.MMatrix()
+
+    rotation_order = cmds.getAttr('{0}.rotateOrder'.format(object_path))
+
+    m_dag_object = utils.get_dag_node(object_path)
+
+    # get world matrix and parent matrix plugs.
+    world_matrix_plug = utils.get_array_plug_from_dag_object(
+        m_dag_object,
+        "worldMatrix"
+    )
+
+    context = OpenMaya.MDGContext()
+    world_matrix = utils.get_matrix_from_plug(
+        world_matrix_plug,
+        context
+    )
+    new_matrix = utils.get_new_matrix(
+        world_matrix,
+        transform_matrix,
+        pivot_matrix,
+        rotation_order
+    )
+
+    plug_node = world_matrix_plug.node()
+    transform = OpenMaya.MFnTransform(plug_node)
+    transform.setTransformation(new_matrix)
+
+
+def apply_transform_to_animated_object(
     object_path,
     transform_matrix,
     pivot_matrix=None,
@@ -109,7 +155,7 @@ def apply_transform_to_object(
 
             if frame in key_inputs:
                 # direction of rotation
-                direction_x, direction_y, direction_z = 1
+                direction_x = direction_y = direction_z = 1
                 if difference_rot.x < 0:
                     direction_x *= -1
                 if difference_rot.y < 0:

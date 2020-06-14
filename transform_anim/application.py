@@ -5,6 +5,7 @@ from maya.api import OpenMaya
 from transform_anim.v1 import offset_anim
 from transform_anim.v2 import transform_object
 # TO DO:
+# - fix bug for incorrect transformation
 # - add support for tangents
 # - add option to add flipping keys instead of running filter.
 # - code structure
@@ -21,7 +22,11 @@ offset_anim.cleanup_keys_from_data(flip_data)
 
 # v2
 transform_matrix_values = cmds.getAttr('locator1.matrix')
-transform_object.apply_transform_to_object(
+transform_object.apply_transform_to_animated_object(
+    'pCylinder2',
+    OpenMaya.MMatrix(transform_matrix_values)
+)
+transform_object.apply_transform_to_static_object(
     'pCylinder2',
     OpenMaya.MMatrix(transform_matrix_values)
 )
