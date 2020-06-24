@@ -147,7 +147,6 @@ def apply_transform_to_animated_object(
                     counter[0] += 2
 
             if frame in key_inputs:
-                print frame
                 # direction of rotation
                 direction_x = direction_y = direction_z = 1
                 if difference_rot.x < 0:
@@ -158,8 +157,6 @@ def apply_transform_to_animated_object(
                     direction_z *= -1
                 # store the data
                 rot = transformed_matrices[frame].rotation()
-                print 'rot', rot
-                print 'counter', counter
                 added_rotation = OpenMaya.MEulerRotation(
                     counter[0] * math.pi * direction_x,
                     counter[1] * math.pi * direction_y,
@@ -167,11 +164,9 @@ def apply_transform_to_animated_object(
                 )
 
                 if offset_rotation:
-                    print 'offset rot', offset_rotation
                     rot += offset_rotation
 
                 filtered_data[frame] = rot + added_rotation
-                print 'final rot', rot + added_rotation
 
                 if not offset_rotation:
                     offset_rotation = added_rotation
