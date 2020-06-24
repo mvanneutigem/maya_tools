@@ -98,7 +98,6 @@ def get_new_matrix(
     world_matrix,
     transform_matrix,
     pivot_matrix,
-    rotation_order
 ):
     """Apply the transformation matrix to the world matrix using the given
     pivot and rotation order.
@@ -107,39 +106,10 @@ def get_new_matrix(
         world_matrix(OpenMaya.MMatrix): matrix to transform.
         transform_matrix(OpenMaya.MMatrix): the transformation matrix.
         pivot_matrix(OpenMaya.MMatrix): pivot point to transform on.
-        rotation_order(OpenMaya.MMatrix): rotation order to apply rotation on
-            world matrix with.
     Returns:
         OpenMaya.MTransformationMatrix: transformed world matrix.
     """
-    m_transform_matrix = OpenMaya.MTransformationMatrix(transform_matrix)
-    m_world_matrix = OpenMaya.MTransformationMatrix(world_matrix)
-
-    # # move world matrix into pivot point space.
-    # local_pivot_point = OpenMaya.MTransformationMatrix(
-    #     pivot_matrix * world_matrix.inverse()
-    # )
-    # m_world_matrix.setRotatePivot(
-    #     OpenMaya.MPoint(
-    #         local_pivot_point.translation(OpenMaya.MSpace.kTransform)
-    #     ),
-    #     OpenMaya.MSpace.kTransform,
-    #     True
-    # )
-    # m_world_matrix.rotateBy(
-    #     local_pivot_point.rotation(),
-    #     OpenMaya.MSpace.kTransform
-    # )
-
-    # transform world matrix using transformation matrix
-    m_euler_rotation = m_transform_matrix.rotation()
-    m_euler_rotation.order = rotation_order
-    m_world_matrix.rotateBy(m_euler_rotation, OpenMaya.MSpace.kTransform)
-    m_world_matrix.translateBy(
-        m_transform_matrix.translation(OpenMaya.MSpace.kTransform),
-        OpenMaya.MSpace.kTransform
-    )
-    print 'rotation', m_transform_matrix.rotation()
-    print 'translation', m_transform_matrix.translation(OpenMaya.MSpace.kTransform)
-
-    return OpenMaya.MTransformationMatrix(m_world_matrix.asMatrix())
+    pivot_world_matrix = world_matrix * pivot_matrix.inverse()
+    transformed_pivot_world_matrix = pivot_world_matrix * transform_matrix
+    transformed_world_matrix = transformed_pivot_world_matrix * pivot_matrix  # noqa
+    return OpenMaya.MTransformationMatrix(transformed_world_matrix)

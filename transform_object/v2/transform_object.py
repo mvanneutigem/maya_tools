@@ -2,9 +2,8 @@
 import math
 
 from maya.api import OpenMaya
-from maya import cmds
 
-from transform_anim.v2 import utils
+from transform_object.v2 import utils
 
 
 def apply_transform_to_static_object(
@@ -26,8 +25,6 @@ def apply_transform_to_static_object(
     if not pivot_matrix:
         pivot_matrix = OpenMaya.MMatrix()
 
-    rotation_order = cmds.getAttr('{0}.rotateOrder'.format(object_path))
-
     m_dag_object = utils.get_dag_node(object_path)
 
     # get world matrix and parent matrix plugs.
@@ -45,7 +42,6 @@ def apply_transform_to_static_object(
         world_matrix,
         transform_matrix,
         pivot_matrix,
-        rotation_order
     )
 
     plug_node = world_matrix_plug.node()
@@ -74,8 +70,6 @@ def apply_transform_to_animated_object(
     """
     if not pivot_matrix:
         pivot_matrix = OpenMaya.MMatrix()
-
-    rotation_order = cmds.getAttr('{0}.rotateOrder'.format(object_path))
 
     m_dag_object = utils.get_dag_node(object_path)
 
@@ -114,7 +108,6 @@ def apply_transform_to_animated_object(
             world_matrix,
             transform_matrix,
             pivot_matrix,
-            rotation_order
         )
         transformed_matrices[frame] = new_matrix
 
@@ -133,7 +126,7 @@ def apply_transform_to_animated_object(
             current_rot = current_matrix.rotation()
 
             difference_rot = current_rot - prev_rot
-            # full rotation transfer to fingle different axis
+            # full rotation transfer to single different axis
             if abs(difference_rot.x) > math.pi:
                 counter[0] += 2
 
@@ -154,6 +147,7 @@ def apply_transform_to_animated_object(
                     counter[0] += 2
 
             if frame in key_inputs:
+                print frame
                 # direction of rotation
                 direction_x = direction_y = direction_z = 1
                 if difference_rot.x < 0:
@@ -164,6 +158,8 @@ def apply_transform_to_animated_object(
                     direction_z *= -1
                 # store the data
                 rot = transformed_matrices[frame].rotation()
+                print 'rot', rot
+                print 'counter', counter
                 added_rotation = OpenMaya.MEulerRotation(
                     counter[0] * math.pi * direction_x,
                     counter[1] * math.pi * direction_y,
@@ -171,9 +167,11 @@ def apply_transform_to_animated_object(
                 )
 
                 if offset_rotation:
+                    print 'offset rot', offset_rotation
                     rot += offset_rotation
 
                 filtered_data[frame] = rot + added_rotation
+                print 'final rot', rot + added_rotation
 
                 if not offset_rotation:
                     offset_rotation = added_rotation
