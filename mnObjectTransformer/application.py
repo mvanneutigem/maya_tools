@@ -33,7 +33,7 @@ from maya import cmds
 from maya.api import OpenMaya
 
 from mnObjectTransformer.v1 import offset_anim
-from mnObjectTransformer.v2 import mnObjectTransformer
+from mnObjectTransformer.v2 import transform_object
 
 LOGGER = logging.getLogger(__name__)
 
