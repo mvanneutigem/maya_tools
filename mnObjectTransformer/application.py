@@ -17,7 +17,7 @@ To add this tool to your shelf;
 -------------------------------------------------------------------------
 import sys
 sys.path.append( [CODEPATH] )
-from transform_object import application
+from mnObjectTransformer import application
 dialog = application.TransformDialog()
 dialog.show()
 -------------------------------------------------------------------------
@@ -32,8 +32,8 @@ from PySide2 import QtCore, QtWidgets
 from maya import cmds
 from maya.api import OpenMaya
 
-from transform_object.v1 import offset_anim
-from transform_object.v2 import transform_object
+from mnObjectTransformer.v1 import offset_anim
+from mnObjectTransformer.v2 import mnObjectTransformer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ class Version1Tab(QtWidgets.QWidget):
         main_layout.addWidget(self.apply_filter_checkbox)
 
         transform_button = QtWidgets.QPushButton("Apply transformation.")
-        transform_button.clicked.connect(self.transform_objects)
+        transform_button.clicked.connect(self.mnObjectTransformers)
         main_layout.addWidget(transform_button)
 
         self.setLayout(main_layout)
@@ -136,7 +136,7 @@ class Version1Tab(QtWidgets.QWidget):
             self.objects
         )
         
-    def transform_objects(self):
+    def mnObjectTransformers(self):
         """Transform objects as specified by proxy setup."""
         if not self.objects or not self.object_mapping:
             LOGGER.warn("Create proxy setup first")
@@ -266,14 +266,14 @@ class Version2Tab(QtWidgets.QWidget):
                 self.pivot_value_widget
             )
             if keys:
-                transform_object.apply_transform_to_animated_object(
+                mnObjectTransformer.apply_transform_to_animated_object(
                     obj,
                     transform_matrix,
                     pivot_matrix,
                     apply_filter
                 )
             else:
-                transform_object.apply_transform_to_static_object(
+                mnObjectTransformer.apply_transform_to_static_object(
                     obj,
                     transform_matrix,
                     pivot_matrix

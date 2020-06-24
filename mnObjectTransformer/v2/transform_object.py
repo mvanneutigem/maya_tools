@@ -3,7 +3,7 @@ import math
 
 from maya.api import OpenMaya
 
-from transform_object.v2 import utils
+from mnObjectTransformer.v2 import utils
 
 
 def apply_transform_to_static_object(
