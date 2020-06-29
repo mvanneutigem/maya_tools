@@ -87,6 +87,13 @@ def apply_transform_to_animated_object(
         "worldMatrix"
     )
 
+    # trying something different
+    parent_matrix_plug = utils.get_array_plug_from_dag_object(
+        m_dag_object,
+        "parentMatrix"
+    )
+
+
     # grab the world matrix for each found input on any channel.
     # do this for every frame instead of just the keys if we want to apply the
     # rotation filter
@@ -95,7 +102,7 @@ def apply_transform_to_animated_object(
     else:
         frames = key_inputs
 
-    transformed_matrices = {}
+    transformed_data = {}
     for frame in frames:
         time_context = OpenMaya.MDGContext(OpenMaya.MTime(frame))
 
@@ -103,90 +110,153 @@ def apply_transform_to_animated_object(
             world_matrix_plug,
             time_context
         )
+        parent_matrix = utils.get_matrix_from_plug(
+            parent_matrix_plug,
+            time_context
+        )
+
+        rx_plug = m_dag_object.findPlug('rx', False)
+        rx_angle = rx_plug.asMAngle(time_context)
+        ry_plug = m_dag_object.findPlug('ry', False)
+        ry_angle = ry_plug.asMAngle(time_context)
+        rz_plug = m_dag_object.findPlug('rz', False)
+        rz_angle = rz_plug.asMAngle(time_context)
+
+        # new_rotation = utils.get_additive_rotation(
+        #     parent_matrix,
+        #     transform_matrix,
+        #     pivot_matrix,
+        # )
+        # new_rotation.x += rx_angle.asRadians()
+        # new_rotation.y += ry_angle.asRadians()
+        # new_rotation.z += rz_angle.asRadians()
 
         new_matrix = utils.get_new_matrix(
             world_matrix,
             transform_matrix,
             pivot_matrix,
         )
-        transformed_matrices[frame] = new_matrix
+        new_rotation = new_matrix.rotation()
+        new_rotation.x += (rx_angle.asRadians() - rx_angle.asRadians()%(2*math.pi))
+        new_rotation.y += (ry_angle.asRadians() - ry_angle.asRadians()%(2*math.pi))
+        new_rotation.z += (rz_angle.asRadians() - rz_angle.asRadians()%(2*math.pi))
 
-    filtered_data = {}
+        transformed_data[frame] = {}
+        transformed_data[frame]['t'] = new_matrix.translation(
+            OpenMaya.MSpace.kTransform
+        )
+        transformed_data[frame]['r'] = new_matrix.rotation() 
+        transformed_data[frame]['r'] = new_rotation
+
+    print 'pre', transformed_data
     if apply_filter:
-        counter = [0, 0, 0]
-        offset_rotation = None
-        for frame in transformed_matrices:
-            if not frame - 1 in transformed_matrices:
-                continue
-
-            previous_matrix = transformed_matrices[frame - 1]
-            current_matrix = transformed_matrices[frame]
-
-            prev_rot = previous_matrix.rotation()
-            current_rot = current_matrix.rotation()
-
-            difference_rot = current_rot - prev_rot
-            # full rotation transfer to single different axis
-            if abs(difference_rot.x) > math.pi:
-                counter[0] += 2
-
-            if abs(difference_rot.y) > math.pi:
-                counter[1] += 2
-
-            if abs(difference_rot.z) > math.pi:
-                counter[2] += 2
-
-            # dual rotation transfer to single different axis
-            if abs(difference_rot.x) == math.pi:
-                if abs(difference_rot.y) == math.pi:
-                    counter[2] += 2
-                if abs(difference_rot.z) == math.pi:
-                    counter[1] += 2
-            if abs(difference_rot.y) == math.pi:
-                if abs(difference_rot.z) == math.pi:
-                    counter[0] += 2
-
-            if frame in key_inputs:
-                # direction of rotation
-                direction_x = direction_y = direction_z = 1
-                if difference_rot.x < 0:
-                    direction_x *= -1
-                if difference_rot.y < 0:
-                    direction_y *= -1
-                if difference_rot.z < 0:
-                    direction_z *= -1
-                # store the data
-                rot = transformed_matrices[frame].rotation()
-                added_rotation = OpenMaya.MEulerRotation(
-                    counter[0] * math.pi * direction_x,
-                    counter[1] * math.pi * direction_y,
-                    counter[2] * math.pi * direction_z
-                )
-
-                if offset_rotation:
-                    rot += offset_rotation
-
-                filtered_data[frame] = rot + added_rotation
-
-                if not offset_rotation:
-                    offset_rotation = added_rotation
-                else:
-                    offset_rotation += added_rotation
-                counter = [0, 0, 0]
+        utils.apply_euler_filter_to_transformed_data(transformed_data, frames)
+    print 'post', transformed_data
 
     for key in key_inputs:
         # set keyframes on the anim curves.
-        trans = transformed_matrices[key].translation(
-            OpenMaya.MSpace.kTransform
-        )
-
-        if key in filtered_data:
-            rot = filtered_data[key]
-        else:
-            rot = transformed_matrices[key].rotation()
-
+        trans = transformed_data[key]['t']
+        rot = transformed_data[key]['r']
+        #test this is it has a parent?
         utils.set_transform_keys_on_curve(
             key,
             [trans.x, trans.y, trans.z, rot.x, rot.y, rot.z],
             animcurves
         )
+
+# # =-==================================================
+#     transformed_matrices = {}
+#     for frame in frames:
+#         time_context = OpenMaya.MDGContext(OpenMaya.MTime(frame))
+
+#         world_matrix = utils.get_matrix_from_plug(
+#             world_matrix_plug,
+#             time_context
+#         )
+
+#         new_matrix = utils.get_new_matrix(
+#             world_matrix,
+#             transform_matrix,
+#             pivot_matrix,
+#         )
+#         transformed_matrices[frame] = new_matrix
+
+#     filtered_data = {}
+#     if apply_filter:
+#         counter = [0, 0, 0]
+#         offset_rotation = None
+#         for frame in transformed_matrices:
+#             if not frame - 1 in transformed_matrices:
+#                 continue
+
+#             previous_matrix = transformed_matrices[frame - 1]
+#             current_matrix = transformed_matrices[frame]
+
+#             prev_rot = previous_matrix.rotation()
+#             current_rot = current_matrix.rotation()
+
+#             difference_rot = current_rot - prev_rot
+#             # full rotation transfer to single different axis
+#             if abs(difference_rot.x) > math.pi:
+#                 counter[0] += 2
+
+#             if abs(difference_rot.y) > math.pi:
+#                 counter[1] += 2
+
+#             if abs(difference_rot.z) > math.pi:
+#                 counter[2] += 2
+
+#             # dual rotation transfer to single different axis
+#             if abs(difference_rot.x) == math.pi:
+#                 if abs(difference_rot.y) == math.pi:
+#                     counter[2] += 2
+#                 if abs(difference_rot.z) == math.pi:
+#                     counter[1] += 2
+#             if abs(difference_rot.y) == math.pi:
+#                 if abs(difference_rot.z) == math.pi:
+#                     counter[0] += 2
+
+#             if frame in key_inputs:
+#                 # direction of rotation
+#                 direction_x = direction_y = direction_z = 1
+#                 if difference_rot.x < 0:
+#                     direction_x *= -1
+#                 if difference_rot.y < 0:
+#                     direction_y *= -1
+#                 if difference_rot.z < 0:
+#                     direction_z *= -1
+#                 # store the data
+#                 rot = transformed_matrices[frame].rotation()
+#                 added_rotation = OpenMaya.MEulerRotation(
+#                     counter[0] * math.pi * direction_x,
+#                     counter[1] * math.pi * direction_y,
+#                     counter[2] * math.pi * direction_z
+#                 )
+
+#                 if offset_rotation:
+#                     rot += offset_rotation
+
+#                 filtered_data[frame] = rot + added_rotation
+
+#                 if not offset_rotation:
+#                     offset_rotation = added_rotation
+#                 else:
+#                     offset_rotation += added_rotation
+#                 counter = [0, 0, 0]
+
+#     for key in key_inputs:
+#         # set keyframes on the anim curves.
+#         trans = transformed_matrices[key].translation(
+#             OpenMaya.MSpace.kTransform
+#         )
+
+#         if key in filtered_data:
+#             rot = filtered_data[key]
+#         else:
+#             rot = transformed_matrices[key].rotation()
+
+#         utils.set_transform_keys_on_curve(
+#             key,
+#             [trans.x, trans.y, trans.z, rot.x, rot.y, rot.z],
+#             animcurves
+#         )

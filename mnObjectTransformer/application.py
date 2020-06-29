@@ -23,6 +23,8 @@ dialog.show()
 -------------------------------------------------------------------------
 """
 
+# transform addition rotation to the local space and just add.
+
 from contextlib import contextmanager
 import functools
 import logging
@@ -266,14 +268,14 @@ class Version2Tab(QtWidgets.QWidget):
                 self.pivot_value_widget
             )
             if keys:
-                mnObjectTransformer.apply_transform_to_animated_object(
+                transform_object.apply_transform_to_animated_object(
                     obj,
                     transform_matrix,
                     pivot_matrix,
                     apply_filter
                 )
             else:
-                mnObjectTransformer.apply_transform_to_static_object(
+                transform_object.apply_transform_to_static_object(
                     obj,
                     transform_matrix,
                     pivot_matrix
