@@ -203,6 +203,7 @@ class Version2Tab(QtWidgets.QWidget):
             "Apply flipping filter (experimental)"
         )
         main_layout.addWidget(self.apply_filter_checkbox, 4, 0, 1, 2)
+        self.apply_filter_checkbox.setChecked(True)
 
         apply_transform_button = QtWidgets.QPushButton("Transform selected")
         apply_transform_button.clicked.connect(
