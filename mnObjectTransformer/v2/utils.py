@@ -1,4 +1,5 @@
 """OpenMaya matrix transform utilities."""
+import math
 from maya.api import OpenMaya, OpenMayaAnim
 
 
@@ -93,7 +94,6 @@ def get_animcurve(m_dag_node, attribute):
     fn_curve = OpenMayaAnim.MFnAnimCurve(m_source_node)
     return fn_curve
 
-
 def get_new_matrix(
     world_matrix,
     transform_matrix,
@@ -113,3 +113,111 @@ def get_new_matrix(
     transformed_pivot_world_matrix = pivot_world_matrix * transform_matrix
     transformed_world_matrix = transformed_pivot_world_matrix * pivot_matrix  # noqa
     return OpenMaya.MTransformationMatrix(transformed_world_matrix)
+
+def account_for_flip(previous_value, current_value):
+    """Account for basic flipping and change current value accordingly.
+    
+    If the difference between values is large than 180 degrees then add 360 
+    degrees in the direction of the rotation.
+
+    Args:
+        previous_value(float): value at frame before current in radians.
+        current_value(float): value at current frame in radians.
+    Returns:
+        float: new value, adjusted for flipping.
+    """
+    while abs(previous_value - current_value) > math.pi:
+        if previous_value < current_value:
+            current_value -= 2 * math.pi
+        else:
+            current_value += 2 * math.pi
+
+    return current_value
+
+def flip_euler(euler, rotation_order):
+    """Resolve flipping rotations in cases where flipping occurs on multiple 
+    different channels; middle rotations are offloaded to outer rotations.
+    
+    Args:
+        euler(OpenMaya.MEulerRotation): rrotation to adjust for flipping.
+        rotation_order(str): order in which channels are rotated eg. xyz.
+    Returns:
+        euler(OpenMaya.MEulerRotation): rotation adjusted for flipping channels.
+    """
+    
+    result = OpenMaya.MEulerRotation()
+    inner_axis = rotation_order[0]
+    middle_axis = rotation_order[1]
+    outer_axis = rotation_order[2]
+    
+    inner_value = getattr(euler, inner_axis) + math.pi
+    setattr(result, inner_axis, inner_value)
+
+    outer_value = getattr(euler, outer_axis) + math.pi
+    setattr(result, outer_axis, outer_value)
+
+    middle_value = getattr(euler, middle_axis) * -1 + math.pi
+    setattr(result, middle_axis, middle_value)
+
+    return result
+
+def euler_rotation_distance(rot1, rot2):
+    """Get absolute distance between rotations.
+    
+    Args:
+        rot1(OpenMaya.MEulerRotation): first rotation to check distance for.
+        rot1(OpenMaya.MEulerRotation): second rotation to check distance for.
+    Returns:
+        float: absolute distance between rotations.
+    """
+    return abs(rot1.x - rot2.x) + abs(rot1.y - rot2.y) + abs(rot1.z - rot2.z)
+
+def apply_euler_filter_to_transformed_data(
+    transformed_data,
+    frames,
+    rotation_order='xyz'
+):
+    """Apply filter to fix channel flipping on euler rotations.
+
+    This function changes the values of the given transformed_data dictionary.
+    
+    Args:
+        transformed_data(dict): data off all transforms along given frames.
+        frames(list): list of frames to iterate, in ascending order.
+        rotation_order(str): rotation order of the object to apply filter on.
+    """
+    euler_data = {}
+    for frame in frames:
+        if (frame-1) not in transformed_data:
+            continue
+
+        current_rotation = transformed_data[frame]['r']
+        previous_rotation = transformed_data[frame-1]['r']
+
+        # apply basic flipping filter for 180 degree flips on one channel
+        new_rotation = OpenMaya.MEulerRotation()
+        new_rotation.x = account_for_flip(previous_rotation.x, current_rotation.x)
+        new_rotation.y = account_for_flip(previous_rotation.y, current_rotation.y)
+        new_rotation.z = account_for_flip(previous_rotation.z, current_rotation.z)
+
+        # apply flipping filter for multi channel flipping
+        result_rotation = flip_euler(new_rotation, rotation_order)
+        result_rotation.x = account_for_flip(previous_rotation.x, result_rotation.x)
+        result_rotation.y = account_for_flip(previous_rotation.y, result_rotation.y)
+        result_rotation.z = account_for_flip(previous_rotation.z, result_rotation.z)
+
+        # apply the filter based on which value has a smaller distance 
+        # from the original rotation.
+        new_rotation_distance = euler_rotation_distance(
+            previous_rotation, 
+            new_rotation
+        )
+        result_rotation_distance = euler_rotation_distance(
+            previous_rotation, 
+            result_rotation
+        )
+        
+        if result_rotation_distance < new_rotation_distance:
+            new_rotation = result_rotation
+
+        transformed_data[frame]['r'] = new_rotation
