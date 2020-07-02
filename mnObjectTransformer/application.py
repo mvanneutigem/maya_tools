@@ -3,7 +3,6 @@
 Copyright (C) 2020  Marieke van Neutigem
 
 # TO DO:
-# - improve + stabilize flipping filter
 # - add support for tangents
 
 Contact: mvn882@hotmail.com
